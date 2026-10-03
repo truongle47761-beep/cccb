@@ -726,10 +726,244 @@ function renamePosition(i){const old=db.positions[i], p=prompt("Đổi tên vị
 function deletePosition(i){if(db.positions.length<=1)return toast("Phải giữ ít nhất một vị trí.");const p=db.positions[i];if(!confirm(`Xóa vị trí “${p}”? Các ca cũ sẽ chuyển sang “Khác”.`))return;db.positions.splice(i,1);db.shifts.forEach(s=>{if(s.position===p){s.position=db.positions.includes("Khác")?"Khác":db.positions[0];s.updated_at=new Date().toISOString();}});saveDB();syncLocalToCloud();render();}
 function exportJSON(){const blob=new Blob([JSON.stringify({version:1,exportedAt:new Date().toISOString(),...db},null,2)],{type:"application/json"});download(blob,"xac-minh-sao-luu-"+todayISO()+".json");toast("Đã tạo file sao lưu.");}
 function download(blob,name){const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);}
-function printPDF(){
-  const list=[...db.shifts].sort((a,b)=>a.date.localeCompare(b.date));
-  const w=window.open("","_blank");if(!w)return toast("Trình duyệt đã chặn cửa sổ in.");
-  w.document.write(`<html><head><title>Báo cáo chấm công</title><style>body{font-family:Arial;padding:25px;color:#222}h1{color:#6d45bd}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ddd;padding:7px;font-size:11px}th{background:#eee}</style></head><body><h1>XÁC MINH HOÀN THÀNH CÔNG VIỆC</h1><p>Xuất ngày ${new Date().toLocaleString("vi-VN")}</p><table><tr><th>Ngày</th><th>Công việc</th><th>Vị trí</th><th>Giờ</th><th>Tiền</th><th>Ghi chú</th></tr>${list.map(s=>`<tr><td>${esc(s.date)}</td><td>${esc(s.jobName)}</td><td>${esc(s.position)}</td><td>${s.off?"OFF":`${s.start}-${s.end} (${fmtHours(hoursFor(s))}h)`}</td><td>${money(shiftPay(s))}</td><td>${esc(s.note)}</td></tr>`).join("")}</table><script>window.onload=()=>window.print()<\/script></body></html>`);w.document.close();
+async function printPDF(){
+  const shifts=[...(db.shifts||[])];
+
+  if(!shifts.length){
+    return toast("Chưa có dữ liệu để xuất.");
+  }
+
+  // Nhập tên công việc muốn xuất
+  const jobInput=prompt(
+    "Nhập tên công việc muốn xuất:\n\n" +
+    "Ví dụ: Phục vụ, Pha chế, Thu ngân..."
+  );
+
+  if(jobInput===null) return;
+
+  const job=jobInput.trim().toLowerCase();
+
+  if(!job){
+    return toast("Vui lòng nhập tên công việc.");
+  }
+
+  // Chỉ lấy đúng công việc được tìm kiếm
+  let list=shifts.filter(s =>
+    String(s.jobName||"").toLowerCase().includes(job)
+  );
+
+  if(!list.length){
+    return toast("Không tìm thấy công việc này.");
+  }
+
+  // Chọn phạm vi thời gian
+  const period=prompt(
+    "Chọn phạm vi xuất dữ liệu:\n\n" +
+    "1 = Ngày\n" +
+    "2 = Tuần\n" +
+    "3 = Tháng\n\n" +
+    "Nhập 1, 2 hoặc 3:"
+  );
+
+  if(period===null) return;
+
+  let fromDate=null;
+  let toDate=null;
+
+  if(period==="1"){
+    const date=prompt(
+      "Nhập ngày muốn xuất theo dạng YYYY-MM-DD\n" +
+      "Ví dụ: 2026-10-04"
+    );
+
+    if(!date) return;
+
+    fromDate=date;
+    toDate=date;
+
+  }else if(period==="2"){
+    const date=prompt(
+      "Nhập ngày bắt đầu tuần theo dạng YYYY-MM-DD\n" +
+      "Ví dụ: 2026-10-04"
+    );
+
+    if(!date) return;
+
+    const start=new Date(date+"T12:00:00");
+
+    if(isNaN(start.getTime())){
+      return toast("Ngày không hợp lệ.");
+    }
+
+    const end=new Date(start);
+    end.setDate(end.getDate()+6);
+
+    fromDate=start.toISOString().slice(0,10);
+    toDate=end.toISOString().slice(0,10);
+
+  }else if(period==="3"){
+    const month=prompt(
+      "Nhập tháng muốn xuất theo dạng YYYY-MM\n" +
+      "Ví dụ: 2026-10"
+    );
+
+    if(!month) return;
+
+    fromDate=month+"-01";
+
+    const d=new Date(month+"-01T12:00:00");
+
+    if(isNaN(d.getTime())){
+      return toast("Tháng không hợp lệ.");
+    }
+
+    d.setMonth(d.getMonth()+1);
+    d.setDate(0);
+
+    toDate=d.toISOString().slice(0,10);
+
+  }else{
+    return toast("Vui lòng chọn 1, 2 hoặc 3.");
+  }
+
+  // Lọc tiếp theo khoảng thời gian
+  list=list.filter(s=>{
+    const date=String(s.date||"").slice(0,10);
+    return date>=fromDate && date<=toDate;
+  });
+
+  if(!list.length){
+    return toast(
+      "Không có dữ liệu của công việc này trong khoảng thời gian đã chọn."
+    );
+  }
+
+  // Sắp xếp theo ngày
+  list.sort((a,b)=>
+    String(a.date||"").localeCompare(String(b.date||""))
+  );
+
+  const w=window.open("","_blank");
+
+  if(!w){
+    return toast("Trình duyệt đang chặn cửa sổ in.");
+  }
+
+  const esc=v=>String(v??"")
+    .replace(/&/g,"&amp;")
+    .replace(/</g,"&lt;")
+    .replace(/>/g,"&gt;")
+    .replace(/"/g,"&quot;");
+
+  const rows=list.map((s,i)=>`
+    <tr>
+      <td>${i+1}</td>
+      <td>${esc(s.date)}</td>
+      <td>${esc(s.jobName)}</td>
+      <td>${esc(s.position)}</td>
+      <td>${esc(s.start)}</td>
+      <td>${esc(s.end)}</td>
+      <td>${esc(s.note)}</td>
+    </tr>
+  `).join("");
+
+  w.document.write(`
+    <!doctype html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <title>Báo cáo chấm công</title>
+
+      <style>
+        body{
+          font-family:Arial,sans-serif;
+          padding:30px;
+          color:#222;
+        }
+
+        h1{
+          text-align:center;
+          margin-bottom:8px;
+        }
+
+        .info{
+          text-align:center;
+          margin-bottom:25px;
+          color:#555;
+        }
+
+        table{
+          width:100%;
+          border-collapse:collapse;
+        }
+
+        th,td{
+          border:1px solid #999;
+          padding:8px;
+          text-align:left;
+        }
+
+        th{
+          background:#eee;
+        }
+
+        .total{
+          margin-top:20px;
+          font-weight:bold;
+        }
+
+        @media print{
+          body{
+            padding:10px;
+          }
+        }
+      </style>
+    </head>
+
+    <body>
+
+      <h1>BÁO CÁO CHẤM CÔNG</h1>
+
+      <div class="info">
+        <div><b>Công việc:</b> ${esc(jobInput)}</div>
+        <div><b>Thời gian:</b> ${esc(fromDate)} → ${esc(toDate)}</div>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>STT</th>
+            <th>Ngày</th>
+            <th>Công việc</th>
+            <th>Vị trí</th>
+            <th>Bắt đầu</th>
+            <th>Kết thúc</th>
+            <th>Ghi chú</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          ${rows}
+        </tbody>
+      </table>
+
+      <div class="total">
+        Tổng số ca: ${list.length}
+      </div>
+
+      <script>
+        window.onload=function(){
+          setTimeout(function(){
+            window.print();
+          },300);
+        };
+      <\/script>
+
+    </body>
+    </html>
+  `);
+
+  w.document.close();
 }
 async function clearData(){
   if(!confirm("Xóa TOÀN BỘ ca và vị trí trên thiết bị và tài khoản cloud? Hãy sao lưu trước nếu cần."))return;
