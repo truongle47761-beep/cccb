@@ -733,6 +733,377 @@ async function printPDF(){
     return toast("Chưa có dữ liệu để xuất.");
   }
 
+  // Nhập tên công việc
+  const jobInput=prompt(
+    "Nhập tên công việc muốn xuất:\n\n" +
+    "Ví dụ: Phục vụ, Pha chế, Thu ngân..."
+  );
+
+  if(jobInput===null) return;
+
+  const job=jobInput.trim().toLocaleLowerCase("vi-VN");
+
+  if(!job){
+    return toast("Vui lòng nhập tên công việc.");
+  }
+
+  // Lọc đúng công việc
+  let list=shifts.filter(s =>
+    String(s.jobName||"")
+      .toLocaleLowerCase("vi-VN")
+      .includes(job)
+  );
+
+  if(!list.length){
+    return toast("Không tìm thấy công việc này.");
+  }
+
+  // Chọn phạm vi thời gian
+  const period=prompt(
+    "Chọn phạm vi xuất dữ liệu:\n\n" +
+    "1 = Ngày\n" +
+    "2 = Tuần\n" +
+    "3 = Tháng\n\n" +
+    "Nhập 1, 2 hoặc 3:"
+  );
+
+  if(period===null) return;
+
+  let fromDate=null;
+  let toDate=null;
+
+  // NGÀY
+  if(period==="1"){
+    const date=prompt(
+      "Nhập ngày muốn xuất theo dạng YYYY-MM-DD\n" +
+      "Ví dụ: 2026-10-04"
+    );
+
+    if(!date) return;
+
+    fromDate=date;
+    toDate=date;
+  }
+
+  // TUẦN
+  else if(period==="2"){
+    const date=prompt(
+      "Nhập ngày bắt đầu tuần theo dạng YYYY-MM-DD\n" +
+      "Ví dụ: 2026-10-04"
+    );
+
+    if(!date) return;
+
+    const start=new Date(date+"T12:00:00");
+
+    if(isNaN(start.getTime())){
+      return toast("Ngày không hợp lệ.");
+    }
+
+    const end=new Date(start);
+    end.setDate(end.getDate()+6);
+
+    fromDate=start.toISOString().slice(0,10);
+    toDate=end.toISOString().slice(0,10);
+  }
+
+  // THÁNG
+  else if(period==="3"){
+    const month=prompt(
+      "Nhập tháng muốn xuất theo dạng YYYY-MM\n" +
+      "Ví dụ: 2026-10"
+    );
+
+    if(!month) return;
+
+    const d=new Date(month+"-01T12:00:00");
+
+    if(isNaN(d.getTime())){
+      return toast("Tháng không hợp lệ.");
+    }
+
+    fromDate=month+"-01";
+
+    d.setMonth(d.getMonth()+1);
+    d.setDate(0);
+
+    toDate=d.toISOString().slice(0,10);
+  }
+
+  else{
+    return toast("Vui lòng chọn 1, 2 hoặc 3.");
+  }
+
+  // Lọc tiếp theo khoảng thời gian
+  list=list.filter(s=>{
+    const date=String(s.date||"").slice(0,10);
+    return date>=fromDate && date<=toDate;
+  });
+
+  if(!list.length){
+    return toast(
+      "Không có dữ liệu của công việc này trong khoảng thời gian đã chọn."
+    );
+  }
+
+  // Sắp xếp theo ngày
+  list.sort((a,b)=>
+    String(a.date||"").localeCompare(String(b.date||""))
+  );
+
+  // Hàm chống lỗi HTML
+  const esc=v=>String(v??"")
+    .replace(/&/g,"&amp;")
+    .replace(/</g,"&lt;")
+    .replace(/>/g,"&gt;")
+    .replace(/"/g,"&quot;");
+
+  // Tính tổng
+  const totalHours=list.reduce(
+    (sum,s)=>sum+hoursFor(s),0
+  );
+
+  const totalExtra=list.reduce(
+    (sum,s)=>sum+totalExtra(s),0
+  );
+
+  const totalActual=list.reduce(
+    (sum,s)=>sum+shiftPay(s),0
+  );
+
+  const totalBase=list.reduce(
+    (sum,s)=>{
+      if(s.off) return sum;
+      return sum+
+        hoursFor(s)*
+        (Number(s.hourlyRate)||0);
+    },
+    0
+  );
+
+  // Bảng chi tiết giống phần THỐNG KÊ
+  const rows=list.map((s,i)=>{
+    const base=s.off
+      ? 0
+      : hoursFor(s)*(Number(s.hourlyRate)||0);
+
+    const extraNames=(s.extras||[])
+      .filter(x=>Number(x.amount)||x.name)
+      .map(x=>esc(x.name))
+      .join(", ");
+
+    return `
+      <tr>
+        <td>${i+1}</td>
+        <td>${esc(s.date)}</td>
+        <td>
+          <b>${esc(s.jobName)}</b>
+          ${s.position
+            ? `<small>${esc(s.position)}</small>`
+            : ""}
+        </td>
+        <td>${s.off ? "OFF" : ""}</td>
+        <td>${s.start||"--"} - ${s.end||"--"}</td>
+        <td>${s.off ? "0" : fmtHours(hoursFor(s))+"h"}</td>
+        <td>${money(s.hourlyRate||0)}</td>
+        <td>${extraNames||"--"}</td>
+        <td>${money(base)}</td>
+        <td><b>${money(shiftPay(s))}</b></td>
+      </tr>
+    `;
+  }).join("");
+
+  // Mở trang in
+  const w=window.open("","_blank");
+
+  if(!w){
+    return toast("Trình duyệt đang chặn cửa sổ in.");
+  }
+
+  w.document.write(`
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+
+<title>
+  Thống kê ${esc(jobInput)}
+</title>
+
+<style>
+
+  *{
+    box-sizing:border-box;
+  }
+
+  body{
+    font-family:Arial,sans-serif;
+    padding:24px;
+    color:#111;
+    background:#fff;
+  }
+
+  h1{
+    text-align:center;
+    margin:0 0 8px;
+  }
+
+  .subtitle{
+    text-align:center;
+    color:#555;
+    margin-bottom:20px;
+  }
+
+  .summary{
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    gap:10px;
+    margin-bottom:20px;
+  }
+
+  .summary-box{
+    border:1px solid #ccc;
+    border-radius:8px;
+    padding:12px;
+    text-align:center;
+  }
+
+  .summary-box small{
+    display:block;
+    color:#666;
+    margin-bottom:5px;
+  }
+
+  .summary-box b{
+    font-size:18px;
+  }
+
+  table{
+    width:100%;
+    border-collapse:collapse;
+    font-size:12px;
+  }
+
+  th{
+    background:#f1f1f1;
+    font-weight:bold;
+  }
+
+  th,td{
+    border:1px solid #ccc;
+    padding:7px 6px;
+    vertical-align:middle;
+  }
+
+  td small{
+    display:block;
+    color:#666;
+    margin-top:2px;
+  }
+
+  .total-row{
+    background:#f5f5f5;
+    font-weight:bold;
+  }
+
+  @media print{
+    body{
+      padding:10px;
+    }
+
+    button{
+      display:none;
+    }
+  }
+
+</style>
+</head>
+
+<body>
+
+<h1>THỐNG KÊ CÔNG VIỆC</h1>
+
+<div class="subtitle">
+  Công việc: <b>${esc(jobInput)}</b><br>
+  Thời gian: ${esc(fromDate)} → ${esc(toDate)}
+</div>
+
+<div class="summary">
+
+  <div class="summary-box">
+    <small>Số ca</small>
+    <b>${list.length}</b>
+  </div>
+
+  <div class="summary-box">
+    <small>Tổng giờ</small>
+    <b>${fmtHours(totalHours)}h</b>
+  </div>
+
+  <div class="summary-box">
+    <small>Tổng phụ cấp</small>
+    <b>${money(totalExtra)}</b>
+  </div>
+
+  <div class="summary-box">
+    <small>Thực nhận</small>
+    <b>${money(totalActual)}</b>
+  </div>
+
+</div>
+
+<table>
+
+  <thead>
+    <tr>
+      <th>#</th>
+      <th>Ngày</th>
+      <th>Công việc</th>
+      <th>OFF</th>
+      <th>Ca làm</th>
+      <th>Số giờ</th>
+      <th>Lương/giờ</th>
+      <th>Phụ cấp</th>
+      <th>Tiền ca</th>
+      <th>Thực nhận</th>
+    </tr>
+  </thead>
+
+  <tbody>
+
+    ${rows}
+
+    <tr class="total-row">
+      <td colspan="5">TỔNG CỘNG</td>
+      <td>${fmtHours(totalHours)}h</td>
+      <td></td>
+      <td>${money(totalExtra)}</td>
+      <td>${money(totalBase)}</td>
+      <td>${money(totalActual)}</td>
+    </tr>
+
+  </tbody>
+
+</table>
+
+<script>
+  window.onload=function(){
+    window.print();
+  };
+<\/script>
+
+</body>
+</html>
+  `);
+
+  w.document.close();
+}
+  const shifts=[...(db.shifts||[])];
+
+  if(!shifts.length){
+    return toast("Chưa có dữ liệu để xuất.");
+  }
+
   // Nhập tên công việc muốn xuất
   const jobInput=prompt(
     "Nhập tên công việc muốn xuất:\n\n" +
