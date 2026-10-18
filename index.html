@@ -323,7 +323,11 @@ async function syncLocalToCloud(showToast=true){
     if(showToast) toast("Chưa đăng nhập Firebase nên dữ liệu chỉ lưu trên máy.");
     return false;
   }
-  if(cloudSyncing){ window.__syncAgainAfterCurrent=true; if(showToast) toast("Đang đồng bộ dữ liệu; yêu cầu mới đã được xếp hàng."); return true; }
+  if(cloudSyncing){
+    window.__syncAgainAfterCurrent=true;
+    if(showToast) toast("Đang đồng bộ dữ liệu; sẽ xác nhận sau khi lượt đồng bộ tiếp theo hoàn tất.");
+    return new Promise(resolve=>{ (window.__syncWaiters ||= []).push(resolve); });
+  }
   cloudSyncing=true;
   let allShiftsSynced=true;
   try{
@@ -352,7 +356,15 @@ async function syncLocalToCloud(showToast=true){
     return false;
   }finally{
     cloudSyncing=false;
-    if(window.__syncAgainAfterCurrent){ window.__syncAgainAfterCurrent=false; Promise.resolve().then(()=>syncLocalToCloud(false)); }
+    if(window.__syncAgainAfterCurrent){
+      window.__syncAgainAfterCurrent=false;
+      const waiters=window.__syncWaiters||[];
+      window.__syncWaiters=[];
+      Promise.resolve().then(()=>syncLocalToCloud(false)).then(ok=>waiters.forEach(resolve=>resolve(!!ok))).catch(err=>{
+        console.error("Lượt đồng bộ tiếp theo thất bại",err);
+        waiters.forEach(resolve=>resolve(false));
+      });
+    }
   }
 }
 async function loadCloudForUser(user){
