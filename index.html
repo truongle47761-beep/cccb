@@ -122,6 +122,74 @@ input:focus,select:focus,textarea:focus{outline:3px solid rgba(59,130,246,.13);b
       <select id="position" required></select>
     </label>
     <button type="button" id="addPositionInline" class="link-btn">＋ Thêm vị trí mới</button>
+    <div class="two-col">
+      <label>Ngày *
+        <input id="date" type="date" required>
+      </label>
+      <label class="switch-label">OFF
+        <input id="off" type="checkbox">
+        <span class="switch"></span>
+      </label>
+    </div>
+    <div class="two-col">
+      <label>Giờ vào
+        <input id="start" type="time" step="60">
+      </label>
+      <label>Giờ ra
+        <input id="end" type="time" step="60">
+      </label>
+    </div>
+    <section class="wage-box">
+      <div class="section-title">Mức lương / giờ (VNĐ)</div>
+      <div class="wage-select-row">
+        <label style="margin:0">Chọn mức đã lưu
+          <select id="savedWage"><option value="">-- Chọn mức đã lưu --</option></select>
+        </label>
+        <button type="button" id="manageWages" class="secondary-btn mini">⚙️ Quản lý</button>
+      </div>
+      <label style="margin-top:8px">Mức lương đang dùng
+        <input id="hourlyRate" type="number" min="0" step="100" inputmode="numeric">
+      </label>
+      <div class="wage-actions">
+        <button type="button" id="saveCurrentWage" class="primary-btn mini">💾 Lưu mức lương này</button>
+      </div>
+      <div id="wageManager" class="hidden">
+        <div class="notice" style="margin-top:8px">💰 Mức lương đã lưu — chọn nhanh khi thêm/sửa ca.</div>
+        <div id="wageList" class="wage-list"></div>
+        <button type="button" id="addWage" class="primary-btn mini" style="margin-top:8px">＋ Thêm mức lương</button>
+      </div>
+    </section>
+    <section>
+      <div class="section-title">Phí cộng thêm</div>
+      <div id="extras" class="extras"></div>
+      <button type="button" id="addExtra" class="secondary-btn">＋ Thêm phụ cấp / Ship / thưởng</button>
+    </section>
+    <label>Ghi chú
+      <textarea id="note" rows="3" placeholder="Ghi chú cho ca này"></textarea>
+    </label>
+    <section class="actual-time-box">
+      <div class="section-title">🔔 Nhắc trước giờ vào ca</div>
+      <label>Thời gian nhắc
+        <select id="reminderMinutes">
+          <option value="0">Không nhắc</option><option value="5">5 phút trước</option><option value="10">10 phút trước</option><option value="15">15 phút trước</option><option value="20">20 phút trước</option><option value="30">30 phút trước</option><option value="60">1 tiếng trước</option><option value="120">2 tiếng trước</option>
+        </select>
+      </label>
+      <small class="table-sub">Thiết lập này sẽ được đưa vào file lịch .ics khi bạn chủ động bấm “Thêm ca này vào Lịch iPhone”. Báo nhắc phụ thuộc vào ứng dụng Lịch và cài đặt iPhone.</small>
+    </section>
+    <section class="actual-time-box">
+      <div class="section-title">🕒 Xác minh giờ thực tế (không tính vào lương)</div>
+      <div class="two-col">
+        <label>Giờ vào thực tế
+          <input id="actualStart" type="datetime-local" step="60">
+          <button type="button" class="secondary-btn mini" id="stampActualStart">✓ Xác minh giờ vào thực tế</button>
+        </label>
+        <label>Giờ ra thực tế
+          <input id="actualEnd" type="datetime-local" step="60">
+          <button type="button" class="secondary-btn mini" id="stampActualEnd">✓ Xác minh giờ ra thực tế</button>
+        </label>
+      </div>
+      <small class="table-sub">Hai mốc này chỉ dùng để đối chiếu cuối tháng. Có thể sửa thủ công và không ảnh hưởng số giờ hoặc tiền lương.</small>
+    </section>
     <div id="shiftPreview" class="calc-box"></div>
     <div class="form-actions">
       <button type="button" class="secondary-btn" data-action="cancel">Hủy</button>
