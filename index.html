@@ -318,54 +318,55 @@ async function uploadPhotoIfNeeded(value, shiftId, kind){
   await ref.put(blob,{contentType:"image/jpeg"});
   return await ref.getDownloadURL();
 }
-async function syncLocalToCloud(showToast=true){
+let cloudSyncQueue = Promise.resolve();
+function syncLocalToCloud(showToast=true){
+  // Serialize all sync requests so concurrent callers wait for their own completed write.
+  const run = () => syncLocalToCloudOnce(showToast);
+  const task = cloudSyncQueue.then(run, run);
+  cloudSyncQueue = task.catch(()=>false);
+  return task;
+}
+async function syncLocalToCloudOnce(showToast=true){
   if(!firestore||!currentUser){
     if(showToast) toast("Chưa đăng nhập Firebase nên dữ liệu chỉ lưu trên máy.");
     return false;
   }
-  if(cloudSyncing){
-    window.__syncAgainAfterCurrent=true;
-    if(showToast) toast("Đang đồng bộ dữ liệu; sẽ xác nhận sau khi lượt đồng bộ tiếp theo hoàn tất.");
-    return new Promise(resolve=>{ (window.__syncWaiters ||= []).push(resolve); });
-  }
-  cloudSyncing=true;
   let allShiftsSynced=true;
+  window.__firebaseSyncFailure=null;
   try{
-    // Lưu tên vị trí/mức lương trước, độc lập với việc tải ảnh.
     await userSettingsRef().set({positions:Array.isArray(db.positions)?db.positions:DEFAULT_POSITIONS.slice(),wageRates:Array.isArray(db.wageRates)?db.wageRates:[],updated_at:new Date().toISOString()},{merge:true});
-    // Một ảnh lỗi không được chặn đồng bộ các ca khác.
     for(const local of db.shifts){
       const s=localShiftToCloud(local);
       for(const kind of ["start","end"]){
         const key=kind==="start"?"photoStart":"photoEnd";
         if(s[key] && String(s[key]).startsWith("data:image/")){
           try{ s[key]=await uploadPhotoIfNeeded(s[key],s.id,kind); local[key]=s[key]; }
-          catch(photoErr){ console.warn("Không tải được ảnh lên Firebase Storage",s.id,kind,photoErr); s[key]=null; allShiftsSynced=false; }
+          catch(photoErr){
+            console.warn("Không tải được ảnh lên Firebase Storage",s.id,kind,photoErr);
+            window.__firebaseSyncFailure={code:photoErr?.code||"photo-upload-failed",message:photoErr?.message||String(photoErr),shiftId:s.id};
+            s[key]=null; allShiftsSynced=false;
+          }
         }
       }
       try{ await userShiftRef(s.id).set(s,{merge:true}); }
-      catch(shiftErr){ allShiftsSynced=false; window.__firebaseSyncFailure={code:shiftErr?.code||"unknown",message:shiftErr?.message||String(shiftErr),shiftId:s.id}; console.error("Không đồng bộ được ca",s.id,shiftErr); }
+      catch(shiftErr){
+        allShiftsSynced=false;
+        window.__firebaseSyncFailure={code:shiftErr?.code||"unknown",message:shiftErr?.message||String(shiftErr),shiftId:s.id};
+        console.error("Không đồng bộ được ca",s.id,shiftErr);
+      }
     }
     saveDB();
     await userSettingsRef().set({positions:Array.isArray(db.positions)?db.positions:DEFAULT_POSITIONS.slice(),wageRates:Array.isArray(db.wageRates)?db.wageRates:[],updated_at:new Date().toISOString()},{merge:true});
-    if(showToast) toast(allShiftsSynced?"☁️ Đã đồng bộ dữ liệu lên Firebase.":"⚠️ Một số ca/ảnh chưa đồng bộ được; dữ liệu ca khác vẫn đã được gửi.");
+    if(showToast){
+      const f=window.__firebaseSyncFailure;
+      toast(allShiftsSynced?"☁️ Đã đồng bộ dữ liệu lên Firebase.":("⚠️ Đồng bộ chưa hoàn tất"+(f?.code?" ("+f.code+")":"")+(f?.shiftId?" ở ca "+f.shiftId:"")+"."));
+    }
     return allShiftsSynced;
   }catch(e){
     window.__firebaseSyncFailure={code:e?.code||"unknown",message:e?.message||String(e)};
     console.error("Firebase sync",e);
     if(showToast) toast("Đồng bộ thất bại"+(e?.code?" ("+e.code+")":"")+". Kiểm tra Firebase Rules/kết nối rồi thử lại.");
     return false;
-  }finally{
-    cloudSyncing=false;
-    if(window.__syncAgainAfterCurrent){
-      window.__syncAgainAfterCurrent=false;
-      const waiters=window.__syncWaiters||[];
-      window.__syncWaiters=[];
-      Promise.resolve().then(()=>syncLocalToCloud(false)).then(ok=>waiters.forEach(resolve=>resolve(!!ok))).catch(err=>{
-        console.error("Lượt đồng bộ tiếp theo thất bại",err);
-        waiters.forEach(resolve=>resolve(false));
-      });
-    }
   }
 }
 async function loadCloudForUser(user){
