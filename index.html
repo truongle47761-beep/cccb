@@ -344,28 +344,21 @@ async function syncLocalToCloudOnce(showToast=true){
   window.__firebaseSyncFailure=null;
   try{
     await firebaseWithTimeout(userSettingsRef().set({positions:Array.isArray(db.positions)?db.positions:DEFAULT_POSITIONS.slice(),wageRates:Array.isArray(db.wageRates)?db.wageRates:[],updated_at:new Date().toISOString()},{merge:true}),"Lưu cài đặt Firebase");
-    for(const local of db.shifts){
-      const s=localShiftToCloud({...local,photoStart:null,photoEnd:null});
-      for(const kind of ["start","end"]){
-        const key=kind==="start"?"photoStart":"photoEnd";
-        if(s[key] && String(s[key]).startsWith("data:image/")){
-          try{ s[key]=await uploadPhotoIfNeeded(s[key],s.id,kind); local[key]=s[key]; }
-          catch(photoErr){
-            console.warn("Không tải được ảnh lên Firebase Storage",s.id,kind,photoErr);
-            window.__firebaseSyncFailure={code:photoErr?.code||"photo-upload-failed",message:photoErr?.message||String(photoErr),shiftId:s.id};
-            s[key]=null; allShiftsSynced=false;
-          }
-        }
-      }
-      try{ await firebaseWithTimeout(userShiftRef(s.id).set(s,{merge:true}),"Lưu ca "+s.id); }
-      catch(shiftErr){
+    // Ghi nhiều ca theo từng lô thay vì chờ từng ca một, giúp đồng bộ nhanh hơn.
+    const shiftsToSync = db.shifts.map(local => localShiftToCloud({...local,photoStart:null,photoEnd:null}));
+    for(let i=0;i<shiftsToSync.length;i+=400){
+      const batch=firestore.batch();
+      const chunk=shiftsToSync.slice(i,i+400);
+      chunk.forEach(s=>batch.set(userShiftRef(s.id),s,{merge:true}));
+      try{
+        await firebaseWithTimeout(batch.commit(),"Lưu nhóm ca "+(Math.floor(i/400)+1),30000);
+      }catch(batchErr){
         allShiftsSynced=false;
-        window.__firebaseSyncFailure={code:shiftErr?.code||"unknown",message:shiftErr?.message||String(shiftErr),shiftId:s.id};
-        console.error("Không đồng bộ được ca",s.id,shiftErr);
+        window.__firebaseSyncFailure={code:batchErr?.code||"unknown",message:batchErr?.message||String(batchErr),shiftId:chunk[0]?.id||""};
+        console.error("Không đồng bộ được nhóm ca",batchErr);
       }
     }
     saveDB();
-    await userSettingsRef().set({positions:Array.isArray(db.positions)?db.positions:DEFAULT_POSITIONS.slice(),wageRates:Array.isArray(db.wageRates)?db.wageRates:[],updated_at:new Date().toISOString()},{merge:true});
     if(showToast){
       const f=window.__firebaseSyncFailure;
       toast(allShiftsSynced?"☁️ Đã đồng bộ dữ liệu lên Firebase.":("⚠️ Đồng bộ chưa hoàn tất"+(f?.code?" ("+f.code+")":"")+(f?.shiftId?" ở ca "+f.shiftId:"")+"."));
