@@ -414,9 +414,11 @@ async function loadCloudForUser(user){
     }
     render();
   }catch(e){
+    window.__firebaseLoadFailure={code:e?.code||"unknown",message:e?.message||String(e)};
     console.error("Firebase load",e);
-    const msg=e?.code?` (${e.code})`:"";
-    toast("Đã đăng nhập nhưng chưa tải được dữ liệu Firebase"+msg+".");
+    const code=e?.code?` [${e.code}]`:"";
+    const detail=String(e?.message||e||"Không rõ nguyên nhân").slice(0,180);
+    toast("Đã đăng nhập nhưng chưa tải được dữ liệu Firebase"+code+": "+detail);
   }
 }
 
