@@ -344,13 +344,14 @@ async function syncLocalToCloud(showToast=true){
         }
       }
       try{ await userShiftRef(s.id).set(s,{merge:true}); }
-      catch(shiftErr){ allShiftsSynced=false; console.error("Không đồng bộ được ca",s.id,shiftErr); }
+      catch(shiftErr){ allShiftsSynced=false; window.__firebaseSyncFailure={code:shiftErr?.code||"unknown",message:shiftErr?.message||String(shiftErr),shiftId:s.id}; console.error("Không đồng bộ được ca",s.id,shiftErr); }
     }
     saveDB();
     await userSettingsRef().set({positions:Array.isArray(db.positions)?db.positions:DEFAULT_POSITIONS.slice(),wageRates:Array.isArray(db.wageRates)?db.wageRates:[],updated_at:new Date().toISOString()},{merge:true});
     if(showToast) toast(allShiftsSynced?"☁️ Đã đồng bộ dữ liệu lên Firebase.":"⚠️ Một số ca/ảnh chưa đồng bộ được; dữ liệu ca khác vẫn đã được gửi.");
     return allShiftsSynced;
   }catch(e){
+    window.__firebaseSyncFailure={code:e?.code||"unknown",message:e?.message||String(e)};
     console.error("Firebase sync",e);
     if(showToast) toast("Đồng bộ thất bại"+(e?.code?" ("+e.code+")":"")+". Kiểm tra Firebase Rules/kết nối rồi thử lại.");
     return false;
@@ -404,7 +405,7 @@ async function loadCloudForUser(user){
     if(syncOk){
       toast("☁️ Đã tải dữ liệu và đồng bộ lên Firebase.");
     }else{
-      toast("⚠️ Đã đăng nhập nhưng Firebase chưa xác nhận lưu dữ liệu. Mở mục Tài khoản và bấm Đồng bộ ngay để xem lỗi.");
+      const f=window.__firebaseSyncFailure; toast(f?("⚠️ Firebase lỗi "+f.code+(f.shiftId?" ở ca "+f.shiftId:"")+": "+String(f.message||"").slice(0,140)): "⚠️ Đã đăng nhập nhưng Firebase chưa xác nhận lưu dữ liệu. Mở mục Tài khoản và bấm Đồng bộ ngay để xem lỗi.");
     }
     render();
   }catch(e){
