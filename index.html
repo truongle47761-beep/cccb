@@ -308,6 +308,10 @@ function cloudShiftToLocal(s){
 }
 function userShiftRef(id){ return firestore.collection("users").doc(currentUser.uid).collection("shifts").doc(id); }
 function userSettingsRef(){ return firestore.collection("users").doc(currentUser.uid).collection("settings").doc("profile"); }
+function firebaseWithTimeout(promise,label,ms=20000){
+  let timer;
+  return Promise.race([Promise.resolve(promise),new Promise((_,reject)=>{timer=setTimeout(()=>{const e=new Error(label+" quá 20 giây không phản hồi");e.code="xmht/timeout";reject(e);},ms);})]).finally(()=>clearTimeout(timer));
+}
 
 async function uploadPhotoIfNeeded(value, shiftId, kind){
   if(!value || !String(value).startsWith("data:image/")) return value || null;
@@ -334,7 +338,7 @@ async function syncLocalToCloudOnce(showToast=true){
   let allShiftsSynced=true;
   window.__firebaseSyncFailure=null;
   try{
-    await userSettingsRef().set({positions:Array.isArray(db.positions)?db.positions:DEFAULT_POSITIONS.slice(),wageRates:Array.isArray(db.wageRates)?db.wageRates:[],updated_at:new Date().toISOString()},{merge:true});
+    await firebaseWithTimeout(userSettingsRef().set({positions:Array.isArray(db.positions)?db.positions:DEFAULT_POSITIONS.slice(),wageRates:Array.isArray(db.wageRates)?db.wageRates:[],updated_at:new Date().toISOString()},{merge:true}),"Lưu cài đặt Firebase");
     for(const local of db.shifts){
       const s=localShiftToCloud(local);
       for(const kind of ["start","end"]){
@@ -348,7 +352,7 @@ async function syncLocalToCloudOnce(showToast=true){
           }
         }
       }
-      try{ await userShiftRef(s.id).set(s,{merge:true}); }
+      try{ await firebaseWithTimeout(userShiftRef(s.id).set(s,{merge:true}),"Lưu ca "+s.id); }
       catch(shiftErr){
         allShiftsSynced=false;
         window.__firebaseSyncFailure={code:shiftErr?.code||"unknown",message:shiftErr?.message||String(shiftErr),shiftId:s.id};
@@ -378,9 +382,9 @@ async function loadCloudForUser(user){
     if(!userLocal.shifts.length && guest.shifts.length){ db=guest; saveDB(); }
     else db=userLocal;
 
-    const snap=await firestore.collection("users").doc(user.uid).collection("shifts").get();
+    const snap=await firebaseWithTimeout(firestore.collection("users").doc(user.uid).collection("shifts").get(),"Tải danh sách ca Firebase");
     let settingsData={};
-    const settingsSnap=await userSettingsRef().get();
+    const settingsSnap=await firebaseWithTimeout(userSettingsRef().get(),"Tải cài đặt Firebase");
     if(settingsSnap.exists) settingsData=settingsSnap.data()||{};
 
     const remote=(snap.docs||[]).map(d=>cloudShiftToLocal({...d.data(),id:d.id}));
