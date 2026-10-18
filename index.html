@@ -69,6 +69,10 @@ input,select,textarea{border-radius:12px!important;border:1px solid #d8e2ef!impo
 input:focus,select:focus,textarea:focus{outline:3px solid rgba(59,130,246,.13);border-color:#60a5fa!important}
 .stat strong{font-size:clamp(17px,3vw,22px);letter-spacing:-.03em}
 .bottom-nav{background:rgba(255,255,255,.96)!important;border-top:1px solid #e2e8f0!important;backdrop-filter:blur(18px)}
+.chart-legend{display:flex;flex-wrap:wrap;gap:14px;margin:0 0 8px;font-size:11px;color:var(--muted)}
+.chart-legend span{display:flex;align-items:center;gap:6px}.chart-legend i{width:9px;height:9px;border-radius:50%;display:inline-block}
+.chart-scroll{overflow-x:auto}.chart-values{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:11px;margin:4px 0 8px}
+.chart-values b{color:var(--ink)}
 /* This edition deliberately has no shift-photo evidence feature. */
 #photoStartCamera,#photoStartAlbum,#photoEndCamera,#photoEndAlbum,#photoStartPreview,#photoEndPreview,
 .photo-input-hidden,.photo-preview,.detail-images,.photo-full{display:none!important}
@@ -118,96 +122,6 @@ input:focus,select:focus,textarea:focus{outline:3px solid rgba(59,130,246,.13);b
       <select id="position" required></select>
     </label>
     <button type="button" id="addPositionInline" class="link-btn">＋ Thêm vị trí mới</button>
-    <div class="two-col">
-      <label>Ngày *
-        <input id="date" type="date" required>
-      </label>
-      <label class="switch-label">OFF
-        <input id="off" type="checkbox">
-        <span class="switch"></span>
-      </label>
-    </div>
-    <div class="two-col">
-      <label>Giờ vào
-        <input id="start" type="time" step="60">
-      </label>
-      <label>Giờ ra
-        <input id="end" type="time" step="60">
-      </label>
-    </div>
-    <section class="wage-box">
-      <div class="section-title">Mức lương / giờ (VNĐ)</div>
-      <div class="wage-select-row">
-        <label style="margin:0">Chọn mức đã lưu
-          <select id="savedWage"><option value="">-- Chọn mức đã lưu --</option></select>
-        </label>
-        <button type="button" id="manageWages" class="secondary-btn mini">⚙️ Quản lý</button>
-      </div>
-      <label style="margin-top:8px">Mức lương đang dùng
-        <input id="hourlyRate" type="number" min="0" step="100" inputmode="numeric">
-      </label>
-      <div class="wage-actions">
-        <button type="button" id="saveCurrentWage" class="primary-btn mini">💾 Lưu mức lương này</button>
-      </div>
-      <div id="wageManager" class="hidden">
-        <div class="notice" style="margin-top:8px">💰 Mức lương đã lưu — chọn nhanh khi thêm/sửa ca.</div>
-        <div id="wageList" class="wage-list"></div>
-        <button type="button" id="addWage" class="primary-btn mini" style="margin-top:8px">＋ Thêm mức lương</button>
-      </div>
-    </section>
-    <section>
-      <div class="section-title">Phí cộng thêm</div>
-      <div id="extras" class="extras"></div>
-      <button type="button" id="addExtra" class="secondary-btn">＋ Thêm phụ cấp / Ship / thưởng</button>
-    </section>
-    <label>Ghi chú
-      <textarea id="note" rows="3" placeholder="Ghi chú cho ca này"></textarea>
-    </label>
-    <section class="actual-time-box">
-      <div class="section-title">🔔 Nhắc trước giờ vào ca</div>
-      <label>Thời gian nhắc
-        <select id="reminderMinutes">
-          <option value="0">Không nhắc</option><option value="5">5 phút trước</option><option value="10">10 phút trước</option><option value="15">15 phút trước</option><option value="20">20 phút trước</option><option value="30">30 phút trước</option><option value="60">1 tiếng trước</option><option value="120">2 tiếng trước</option>
-        </select>
-      </label>
-      <small class="table-sub">Thiết lập này sẽ được đưa vào file lịch .ics khi bạn chủ động bấm “Thêm ca này vào Lịch iPhone”. Báo nhắc phụ thuộc vào ứng dụng Lịch và cài đặt iPhone.</small>
-    </section>
-    <section class="actual-time-box">
-      <div class="section-title">🕒 Xác minh giờ thực tế (không tính vào lương)</div>
-      <div class="two-col">
-        <label>Giờ vào thực tế
-          <input id="actualStart" type="datetime-local" step="60">
-          <button type="button" class="secondary-btn mini" id="stampActualStart">✓ Xác minh giờ vào thực tế</button>
-        </label>
-        <label>Giờ ra thực tế
-          <input id="actualEnd" type="datetime-local" step="60">
-          <button type="button" class="secondary-btn mini" id="stampActualEnd">✓ Xác minh giờ ra thực tế</button>
-        </label>
-      </div>
-      <small class="table-sub">Hai mốc này chỉ dùng để đối chiếu cuối tháng. Có thể sửa thủ công và không ảnh hưởng số giờ hoặc tiền lương.</small>
-    </section>
-    <div class="two-col">
-      <div class="photo-field">
-        <label>📸 Ảnh đầu ca</label>
-        <div class="photo-actions">
-          <button type="button" class="secondary-btn mini" data-photo-camera="start">📷 Chụp ảnh</button>
-          <button type="button" class="secondary-btn mini" data-photo-album="start">🖼️ Chọn từ album</button>
-        </div>
-        <input id="photoStartCamera" class="photo-input-hidden" type="file" accept="image/*" capture="environment">
-        <input id="photoStartAlbum" class="photo-input-hidden" type="file" accept="image/*">
-        <div id="photoStartPreview" class="photo-preview"></div><small class="table-sub">Ảnh sẽ được nén để lưu và đồng bộ.</small>
-      </div>
-      <div class="photo-field">
-        <label>📸 Ảnh cuối ca</label>
-        <div class="photo-actions">
-          <button type="button" class="secondary-btn mini" data-photo-camera="end">📷 Chụp ảnh</button>
-          <button type="button" class="secondary-btn mini" data-photo-album="end">🖼️ Chọn từ album</button>
-        </div>
-        <input id="photoEndCamera" class="photo-input-hidden" type="file" accept="image/*" capture="environment">
-        <input id="photoEndAlbum" class="photo-input-hidden" type="file" accept="image/*">
-        <div id="photoEndPreview" class="photo-preview"></div><small class="table-sub">Có thể thay ảnh hoặc bấm × để xóa.</small>
-      </div>
-    </div>
     <div id="shiftPreview" class="calc-box"></div>
     <div class="form-actions">
       <button type="button" class="secondary-btn" data-action="cancel">Hủy</button>
@@ -527,20 +441,54 @@ function summary(list){
   return {count:list.length,hours:list.reduce((a,s)=>a+hoursFor(s),0),income:list.reduce((a,s)=>a+shiftPay(s),0)};
 }
 function dashboardView(){
-  const now=new Date(), list=db.shifts.filter(s=>s.date.slice(0,7)===todayISO(now).slice(0,7));
-  const sum=summary(list), recent=[...db.shifts].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,5);
+  const now=new Date(), month=todayISO(now).slice(0,7);
+  const list=db.shifts.filter(s=>s.date.slice(0,7)===month);
+  const sum=summary(list), todayShifts=db.shifts.filter(s=>s.date===todayISO(now)).sort((a,b)=>(a.start||"").localeCompare(b.start||""));
   return `<h1>Tổng quan</h1><div class="subtitle">Quản lý ca làm • giờ công • thu nhập</div>
   <div class="stats-grid">
     <div class="stat"><small>📅 Tổng ca</small><strong>${sum.count}</strong></div>
     <div class="stat pink"><small>🕐 Tổng giờ</small><strong>${fmtHours(sum.hours)}h</strong></div>
     <div class="stat green"><small>💰 Thu nhập</small><strong>${money(sum.income)}</strong></div>
   </div>
+  <div class="card" style="margin-top:12px"><div class="card-title"><span>📈 Thu nhập & mức lương trong tháng</span></div>
+    ${monthlyIncomeChart(month,list)}
+  </div>
   <div class="card actual-time-box" style="margin-top:12px"><div class="section-title">🔔 Nhắc trước thời gian vào ca</div><label>Áp dụng mặc định cho ca mới
     <select id="overviewReminderMinutes"><option value="0">Không nhắc</option><option value="5">5 phút</option><option value="10">10 phút</option><option value="15">15 phút</option><option value="20">20 phút</option><option value="30">30 phút</option><option value="60">1 tiếng</option><option value="120">2 tiếng</option></select>
   </label><small class="table-sub">Mỗi ca có thể đổi riêng trong phần sửa ca. Khi thêm ca vào Lịch iPhone, mức nhắc của chính ca đó sẽ được dùng.</small></div>
-  <div class="card" style="margin-top:12px"><div class="card-title"><span>Ca gần đây</span><button class="link-btn" data-route="calendar">Xem tất cả</button></div>
-  ${recent.length?recent.map(shiftCard).join(""):`<div class="empty">Chưa có ca nào. Bấm “Thêm ca” để bắt đầu.</div>`}</div>
+  <div class="card" style="margin-top:12px"><div class="card-title"><span>Ca hôm nay</span><button class="link-btn" data-route="calendar">Xem lịch</button></div>
+  ${todayShifts.length?todayShifts.map(shiftCard).join(""):`<div class="empty">Hôm nay chưa có ca nào được lên lịch.</div>`}</div>
   <button class="primary-btn big-add" data-route="add">＋ Thêm ca</button>`;
+}
+function monthlyIncomeChart(month,list){
+  const [year,monthNum]=month.split("-").map(Number);
+  const days=new Date(year,monthNum,0).getDate();
+  const income=Array(days).fill(0), wage=Array(days).fill(null);
+  for(const s of list){
+    const day=Number(s.date.slice(8,10))-1;
+    if(day<0||day>=days)continue;
+    income[day]+=shiftPay(s);
+    if(!s.off&&Number(s.hourlyRate)>0)wage[day]=wage[day]==null?Number(s.hourlyRate):Math.max(wage[day],Number(s.hourlyRate));
+  }
+  const W=340,H=154,L=34,R=34,T=12,B=25,plotW=W-L-R,plotH=H-T-B;
+  const maxIncome=Math.max(1,...income),maxWage=Math.max(1,...wage.filter(v=>v!=null));
+  const x=i=>L+(days===1?plotW/2:i*plotW/(days-1));
+  const yIncome=v=>T+plotH-(v/maxIncome)*plotH;
+  const yWage=v=>T+plotH-((v||0)/maxWage)*plotH;
+  const points=(arr,yFn)=>arr.map((v,i)=>v==null?null:`${x(i).toFixed(1)},${yFn(v).toFixed(1)}`).filter(Boolean).join(" ");
+  const incomePoints=points(income,yIncome),wagePoints=points(wage,yWage);
+  const ticks=[1,Math.ceil(days/2),days].filter((v,i,a)=>a.indexOf(v)===i);
+  return `<div class="chart-legend"><span><i style="background:#8b5cf6"></i>Thu nhập/ngày</span><span><i style="background:#ec4899"></i>Mức lương/giờ</span></div>
+  <div class="chart-scroll"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Biểu đồ đường thu nhập và mức lương theo ngày trong tháng" style="width:100%;min-width:290px;display:block">
+    ${[0,.5,1].map(f=>`<line x1="${L}" y1="${T+plotH*(1-f)}" x2="${W-R}" y2="${T+plotH*(1-f)}" stroke="#e8e1f3" stroke-dasharray="3 4"/>`).join("")}
+    <polyline points="${incomePoints}" fill="none" stroke="#8b5cf6" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <polyline points="${wagePoints}" fill="none" stroke="#ec4899" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    ${income.map((v,i)=>v>0?`<circle cx="${x(i)}" cy="${yIncome(v)}" r="2.8" fill="#8b5cf6"/>`:"").join("")}
+    ${wage.map((v,i)=>v!=null?`<circle cx="${x(i)}" cy="${yWage(v)}" r="2.8" fill="#ec4899"/>`:"").join("")}
+    ${ticks.map(d=>`<text x="${x(d-1)}" y="${H-7}" font-size="10" fill="#786e8f" text-anchor="middle">${d}</text>`).join("")}
+  </svg></div>
+  <div class="chart-values"><span>Thu nhập tháng: <b>${money(income.reduce((a,b)=>a+b,0))}</b></span><span>Mức lương cao nhất: <b>${money(maxWage)}/giờ</b></span></div>
+  <small class="table-sub">Đường tím là thu nhập theo ngày; đường hồng là mức lương/giờ cao nhất được ghi nhận trong ngày. Trục của mỗi đường được co giãn riêng để dễ nhìn xu hướng.</small>`;
 }
 function shiftCard(s){
   const img=s.photoStart||s.photoEnd;
@@ -947,8 +895,8 @@ async function saveShift(e){
   // Nếu đã đăng nhập, tải ảnh lên Storage trước khi lưu URL vào ca.
   // Phiên bản này không sử dụng ảnh chứng minh giờ vào/ra.
   const idx=db.shifts.findIndex(x=>x.id===id);if(idx>=0)db.shifts[idx]=s;else db.shifts.push(s);
-  try{saveDB();}catch(err){console.error("Local save",err);toast("Bộ nhớ máy đã đầy. Hãy đăng nhập để lưu ảnh lên Firebase rồi thử lại.");return;}
-  syncLocalToCloud(false).then(ok=>toast(ok?"☁️ Đã lưu ca và ảnh.":"💾 Đã lưu ca trên máy; chưa đồng bộ được lên Firebase."));
+  try{saveDB();}catch(err){console.error("Local save",err);toast("Bộ nhớ máy đã đầy. Hãy xuất bản sao lưu hoặc đăng nhập để đồng bộ dữ liệu rồi thử lại.");return;}
+  syncLocalToCloud(false).then(ok=>toast(ok?"☁️ Đã lưu ca.":"💾 Đã lưu ca trên máy; chưa đồng bộ được lên Firebase."));
   state.selectedDate=s.date;state.month=new Date(s.date+"T12:00:00");state.route="calendar";render();
   // Ca luôn được lưu trong ứng dụng trước; sau đó hỏi riêng có muốn xuất sự kiện sang Lịch iPhone không.
   showAfterSaveCalendarChoice(s.id);
