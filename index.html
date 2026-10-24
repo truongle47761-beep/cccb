@@ -232,6 +232,7 @@ let firestore = null;
 let storage = null;
 let currentUser = null;
 let cloudSyncing = false;
+let cloudShiftsUnsubscribe = null;
 let activeLocalKey = "guest";
 
 const MENU = [
@@ -410,6 +411,7 @@ async function loadCloudForUser(user){
     }else{
       const f=window.__firebaseSyncFailure; toast(f?("⚠️ Firebase lỗi "+f.code+(f.shiftId?" ở ca "+f.shiftId:"")+": "+String(f.message||"").slice(0,140)): "⚠️ Đã đăng nhập nhưng Firebase chưa xác nhận lưu dữ liệu. Mở mục Tài khoản và bấm Đồng bộ ngay để xem lỗi.");
     }
+    listenForCloudShifts(user);
     render();
   }catch(e){
     window.__firebaseLoadFailure={code:e?.code||"unknown",message:e?.message||String(e)};
@@ -420,9 +422,35 @@ async function loadCloudForUser(user){
   }
 }
 
+function listenForCloudShifts(user){
+  if(cloudShiftsUnsubscribe){cloudShiftsUnsubscribe();cloudShiftsUnsubscribe=null;}
+  if(!firestore||!user)return;
+  const ref=firestore.collection("users").doc(user.uid).collection("shifts");
+  cloudShiftsUnsubscribe=ref.onSnapshot(snapshot=>{
+    if(!currentUser||currentUser.uid!==user.uid||activeLocalKey!==user.uid)return;
+    try{
+      const localMap=new Map((db.shifts||[]).map(s=>[s.id,normalizeShift(s)]));
+      snapshot.docChanges().forEach(change=>{
+        const id=change.doc.id;
+        if(change.type==="removed")return;
+        const remote=cloudShiftToLocal({...change.doc.data(),id});
+        const local=localMap.get(id);
+        if(!local||new Date(remote.updated_at||0)>=new Date(local.updated_at||0))localMap.set(id,remote);
+      });
+      db.shifts=[...localMap.values()];
+      saveDB();
+      render();
+    }catch(e){console.error("Cập nhật ca thời gian thực",e);}
+  },error=>{
+    console.error("Firebase realtime listener",error);
+    toast("Không nhận được cập nhật trực tiếp từ Firebase. Hãy kiểm tra kết nối hoặc bấm Đồng bộ ngay.");
+  });
+}
+
 async function initCloud(){
   if(!initFirebase()) return;
   auth.onAuthStateChanged(async user=>{
+    if(cloudShiftsUnsubscribe){cloudShiftsUnsubscribe();cloudShiftsUnsubscribe=null;}
     currentUser=user||null;
     if(user) await loadCloudForUser(user);
     else {
