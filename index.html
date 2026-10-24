@@ -992,11 +992,31 @@ async function saveShift(e){
 }
 async function toggleCompleted(id,checked){
   const s=db.shifts.find(x=>x.id===id);if(!s)return;
-  s.completed=!!checked;s.updated_at=new Date().toISOString();saveDB();
-  const ok=await syncLocalToCloud(false);
-  toast(checked?"✅ Đã hoàn thành ca — tiền ca + phí cộng thêm đã được cộng.":"↩️ Đã bỏ xác nhận hoàn thành — tiền ca không còn cộng vào thu nhập.");
-  if(!ok&&currentUser)toast("💾 Đã lưu trên máy; Firebase sẽ đồng bộ lại sau.");
+  const previous={completed:s.completed,updated_at:s.updated_at};
+  s.completed=!!checked;
+  s.updated_at=new Date().toISOString();
+  saveDB();
   render();
+  if(currentUser&&firestore){
+    try{
+      // Ghi trạng thái hoàn thành trực tiếp cho ca này để cả tick lẫn tiền
+      // được phát sang các thiết bị khác ngay, không phụ thuộc lô đồng bộ toàn bộ.
+      await firebaseWithTimeout(userShiftRef(id).set(localShiftToCloud({...s,photoStart:null,photoEnd:null}),{merge:true}),"Lưu trạng thái hoàn thành ca");
+      window.__firebaseSyncFailure=null;
+      toast(checked?"✅ Đã hoàn thành ca — tiền ca + phí cộng thêm đã được cộng.":"↩️ Đã bỏ xác nhận hoàn thành — tiền ca không còn cộng vào thu nhập.");
+    }catch(e){
+      s.completed=previous.completed;
+      s.updated_at=previous.updated_at||new Date().toISOString();
+      saveDB();
+      window.__firebaseSyncFailure={code:e?.code||"unknown",message:e?.message||String(e),shiftId:id};
+      console.error("Lưu trạng thái hoàn thành ca thất bại",e);
+      toast("⚠️ Chưa đồng bộ được trạng thái ca lên Firebase. Đã khôi phục trạng thái trước đó; hãy thử lại.");
+      render();
+      return;
+    }
+  }else{
+    toast("💾 Đã lưu trên máy; cần đăng nhập cùng tài khoản để đồng bộ sang máy khác.");
+  }
 }
 async function deleteShift(id){
   const s=db.shifts.find(x=>x.id===id);
